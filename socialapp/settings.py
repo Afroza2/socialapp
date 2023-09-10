@@ -90,7 +90,9 @@ DATABASES = {
     'default': {
         'ENGINE': 'djongo',
         'NAME': 'testdb',  # Replace with your MongoDB database name
-        #'ENFORCE_SCHEMA': False,  # Optional, set to False to allow dynamic schema
+        'HOST': '127.0.0.1',
+        'PORT': 27017,
+        # 'ENFORCE_SCHEMA': True,  # Optional, set to False to allow dynamic schema
     }
 }
 
@@ -98,6 +100,10 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+
+    # 'DEFAULT_PERMISSION_CLASSES': (
+    #     'rest_framework.permissions.IsAuthenticated',
+    # )
 }
 
 SIMPLE_JWT = {
