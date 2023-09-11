@@ -1,31 +1,21 @@
+# myapp/models.py
+
+from django.contrib.auth.models import AbstractUser
 from django.db import models
-from django.contrib.auth.hashers import make_password
 
-# Create your models here.
-
-
-class Users(models.Model):
-    # id = models.IntegerField( primary_key=True)
-    username = models.CharField(max_length=50, primary_key=True)
-    email = models.EmailField()
-    password = models.CharField(max_length=128) 
-
-    def save(self, *args, **kwargs):
-        # Hash the password before saving to the database
-        self.password = make_password(self.password)
-        super(Users, self).save(*args, **kwargs)
-
-    REQUIRED_FIELDS = ['username']
-    USERNAME_FIELD = 'username'
-
-    def __str__(self):
-        return self.username
-    
-class UserProfile(models.Model):
-    user = models.OneToOneField(Users,null=True, on_delete=models.CASCADE, blank=True)
+class CustomUser(AbstractUser):
     profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True)
     bio = models.TextField(max_length=500, blank=True)
     social_media_links = models.URLField(blank=True)
 
-    # def __str__(self):
-    #     return self.user.id
+
+class UserProfileData(models.Model):
+    user = models.OneToOneField(CustomUser, null=True, on_delete=models.CASCADE, blank=True, unique=True, related_name='user_profile')
+    profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True)
+    bio = models.TextField(max_length=500, blank=True)
+    social_media_links = models.URLField(blank=True)
+
+    objects = models.Manager()  # Add this line to define the custom manager
+
+    def __str__(self):
+        return str(self.user)

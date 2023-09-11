@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    # 'rest_framework.authtoken',
     'apilist',
 ]
 
@@ -84,7 +85,7 @@ WSGI_APPLICATION = 'socialapp.wsgi.application'
 #     }
 # }
 
-
+AUTH_USER_MODEL = 'apilist.CustomUser'
 
 DATABASES = {
     'default': {

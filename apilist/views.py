@@ -1,88 +1,127 @@
-from rest_framework.views import APIView
+# myapp/views.py
+
+from django.contrib.auth import get_user_model
+from rest_framework import generics, permissions, status
 from rest_framework.response import Response
-from django.contrib.auth.hashers import check_password
-from rest_framework import status
+from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import Users, UserProfile
-from .serializers import UserSerializer, UserProfileSerializer
-from rest_framework import generics
-from rest_framework.permissions import AllowAny
-from rest_framework.permissions import IsAuthenticated
-from django.utils.encoding import force_bytes
-from django.utils.http import urlsafe_base64_encode
-from django.db import IntegrityError
+from rest_framework import viewsets
+from django.shortcuts import get_object_or_404
+# from .models import UserProfile
+from .serializers import CustomUserSerializer, CustomUserRegistrationSerializer, UserProfileSerializer
 
+CustomUser = get_user_model()
+UserProfileData  = get_user_model()
 
-class SignupView(APIView):
-    permission_classes = (AllowAny,)
+class CustomUserRegistration(APIView):
+    permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        serializer = UserSerializer(data=request.data)
-        print("Request data:", request.data)
-        # serializer.user = user_id
+        serializer = CustomUserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
-            username = serializer.validated_data['username']
-            password = serializer.validated_data['password']
-            email = serializer.validated_data['email']
-            
-            # # Check if the user already exists
-            # if Users.objects.filter(username=username).exists():
-            #     return Response({'error': 'Username already exists.'}, status=status.HTTP_400_BAD_REQUEST)
-            
-            # # Create the user and hash the password
-            # user = Users(username=username, password=password)
-            # user.save()
+            serializer.save()
+            return Response({
+                'message': 'User registered successfully',
+                'data': serializer.data
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            # user_name = user.username
+class CustomUserLogin(APIView):
+    permission_classes = [permissions.AllowAny]
 
-            try:
-                # Create the user and hash the password
-                user = Users(username=username, password=password, email=email)
-                user.save()
-                user_name = user.username
+    def post(self, request):
+        data = request.data
+        username = data.get('username', None)
+        password = data.get('password', None)
+        user = CustomUser.objects.filter(username=username).first()
+        
+        if user is None:
+            return Response({'detail': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        if not user.check_password(password):
+            return Response({'detail': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
-                return Response({'message': 'User registered successfully.', 'username': user_name}, status=status.HTTP_201_CREATED)
+        refresh = RefreshToken.for_user(user)
+        return Response({
+          
+            'access token': str(refresh.access_token),
+              'refresh token': str(refresh),
+        }, status=status.HTTP_200_OK)
+    
+class UserProfile(APIView):
+    permission_classes = [permissions.IsAuthenticated]
 
-            except IntegrityError as e:
-                # Handle IntegrityError, which might occur due to duplicate email or username
-                return Response({'error': 'User with this email or username already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+    def get(self, request):
+        serializer = CustomUserSerializer(request.user)
+        return Response(serializer.data)
 
-            # print("User email after saving:", user_email)
-            # return Response({'message': 'User registered successfully.', 'username': user_name}, status=status.HTTP_201_CREATED)
+
+
+# class UserProfileCreateView(generics.CreateAPIView):
+#     queryset = UserProfileData.objects.all()
+#     serializer_class = UserProfileSerializer
+#     permission_classes = [permissions.IsAuthenticated]
+
+# class UserProfileCreateView(APIView):
+#     permission_classes = [permissions.IsAuthenticated]
+#     def post(self, request, username, format=None):
+#         # Retrieve the user based on the username or ID provided in the request
+#         # username = request.data.get('username')
+#         try:
+#             user = CustomUser.objects.get(username=username)
+#         except CustomUser.DoesNotExist:
+#             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+#         create_data = {
+#             "profile_picture" : request.data.get('profile_picture', None),
+#             "bio" : request.data.get('bio', None),
+#             "social_media_links" : request.data.get('social_media_links', None)
+#         }
+        
+#         profile_data = {'user': user, 'data' : create_data}
+#         # print("data profile", request.data, **request.data)
+#         serializer = UserProfileSerializer(data=profile_data)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response({
+#                 'message': 'User profile created successfully',
+#                 'data': serializer.data
+#             }, status=status.HTTP_201_CREATED)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserProfileCreateView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, username, format=None):
+        # Retrieve the user based on the username provided in the URL
+        user = get_object_or_404(CustomUser, username=username)
+
+        # Check if a profile already exists for this user
+        existing_profile = UserProfileData.objects.filter(user=user).first()
+        
+        if existing_profile:
+            # Profile already exists, update it
+            serializer = UserProfileSerializer(existing_profile, data=request.data)
+        else:
+            # Profile doesn't exist, create a new one
+            serializer = UserProfileSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            serializer.validated_data['user'] = user  # Set the user reference explicitly
+            serializer.save()
+            return Response({
+                'message': 'User profile created/updated successfully',
+                'data': serializer.data
+            }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class LoginView(APIView):
-    def post(self, request):
-        username = request.data.get('username')
-        password = request.data.get('password')
-        email = request.data.get('email')
-        try:
-            user = Users.objects.get(username=username)
-            print("user", user)
 
-        except Users.DoesNotExist:
-            return Response({'error': 'User does not exist.'}, status=status.HTTP_404_NOT_FOUND)
-        if check_password(password, user.password):
-            print("id," , request.user.id)
-            # user_id = urlsafe_base64_encode(force_bytes(request.user.id))
-
-            
-            
-            # print("check created", request.user.id)
-            refresh = RefreshToken.for_user(user)
-            access_token = refresh.access_token
-            user_name = user.username
-            return Response({'user_name': user_name,'message': 'Login Successful','access_token': str(access_token), 'refresh_token': str(refresh)}, status=status.HTTP_200_OK)
-        return Response({'error': 'Invalid password.'}, status=status.HTTP_401_UNAUTHORIZED)
-
-
-class UserProfileCreateView(generics.ListCreateAPIView):
-    queryset = UserProfile.objects.all()
+class UserProfileUpdateView(generics.UpdateAPIView):
+    queryset = UserProfileData.objects.all()
     serializer_class = UserProfileSerializer
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
-class UserProfileDetailView(generics.RetrieveUpdateAPIView):
-    queryset = UserProfile.objects.all()
+class UserProfileDetailView(generics.RetrieveAPIView):
+    queryset = UserProfileData.objects.all()
     serializer_class = UserProfileSerializer
-    # permission_classes = [IsAuthenticated]
