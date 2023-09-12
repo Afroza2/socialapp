@@ -9,6 +9,7 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from .models import CustomUser, UserProfileData, Post, Comment, Like, Share
 from django.shortcuts import get_object_or_404
+from django.db.models import Q
 from django.views import View
 # from .models import UserProfile
 from .serializers import CustomUserSerializer, CustomUserRegistrationSerializer, UserProfileSerializer, PostSerializer, CommentSerializer, LikeSerializer, ShareSerializer
@@ -239,6 +240,15 @@ class SharePostView(generics.CreateAPIView):
         serializer.save(user=self.request.user, post=post)
 
 
+class SearchPostsView(generics.ListAPIView):
+    serializer_class = PostSerializer
 
+    def get_queryset(self):
+        keyword = self.request.query_params.get('keyword', '')
+
+        # Filter posts based on keyword in text or user username
+        queryset = Post.objects.filter(content__icontains=keyword)
+
+        return queryset
 
 

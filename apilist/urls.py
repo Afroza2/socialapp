@@ -20,4 +20,5 @@ urlpatterns = [
     path('posts/<int:post_id>/like/', views.LikePostView.as_view(), name='like-post'),
     path('posts/<int:post_id>/comment/', views.CommentPostView.as_view(), name='comment-post'),
     path('posts/<int:post_id>/share/', views.SharePostView.as_view(), name='share-post'),
+    path('posts/search/', views.SearchPostsView.as_view(), name='search-posts'),
 ]
